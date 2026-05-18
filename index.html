@@ -1,0 +1,2157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全棟多柱線鋼筋撿料與數量計算系統 (Part2 進階版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        
+        /* 瀏覽器直接列印時的精美 A4 黑白樣式 */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            .no-print, header, nav, button, select, input, footer {
+                display: none !important;
+            }
+            .print-full {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            main {
+                display: block !important;
+                grid-template-columns: none !important;
+                background: white !important;
+            }
+            section {
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin-bottom: 25px !important;
+            }
+            /* 強制一次印出所有頁籤之報表 */
+            #tabContent-visual, #tabContent-report, #tabContent-project {
+                display: block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                page-break-after: always;
+            }
+            table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+                color: black !important;
+            }
+            th, td {
+                border: 1px solid #222222 !important;
+                color: black !important;
+                background: white !important;
+                padding: 5px 8px !important;
+            }
+            th {
+                background-color: #f3f4f6 !important;
+            }
+            svg {
+                background: white !important;
+                border: 1px solid #bbbbbb !important;
+            }
+            /* SVG 黑白轉換 */
+            svg rect[fill="#1e293b"], svg rect[fill^="#1"] { fill: #ffffff !important; stroke: #000000 !important; }
+            svg circle[fill="#3b82f6"] { fill: #000000 !important; stroke: #000000 !important; } 
+            svg line[stroke="#f59e0b"] { stroke: #666666 !important; }
+            svg text { fill: #000000 !important; }
+            
+            .text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400, .text-teal-400, .text-amber-400, .text-blue-400, .text-yellow-400 {
+                color: #000000 !important;
+            }
+            .bg-slate-800, .bg-slate-900, .bg-slate-950, .bg-slate-850, .bg-gradient-to-br {
+                background-color: #ffffff !important;
+                background-image: none !important;
+                border-color: #cccccc !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 sticky top-0 z-50 shadow-lg no-print">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-2.5 rounded-lg shadow-md">
+                    <i class="fa-solid fa-layer-group text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white tracking-wide flex items-center gap-2">
+                        全棟多柱線鋼筋撿料算量系統 
+                        <span class="bg-teal-500/20 text-teal-300 text-[10px] px-2 py-0.5 rounded-full border border-teal-500/30 font-mono font-bold">Part 2 重修版</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">符合 RCAD 柱線連續式搭接/續接/縮位與主筋合併筋串計算規範</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- 專案工程名稱 -->
+                <div class="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-700">
+                    <span class="text-xs text-slate-400 font-semibold shrink-0">工程名稱:</span>
+                    <input type="text" id="projNameInput" value="RCAD 璟佳富科技大樓新建工程" oninput="updateProjectMeta('projectName', this.value)" class="bg-transparent border-none text-xs text-teal-300 font-medium focus:outline-none w-48 font-semibold">
+                </div>
+                <button onclick="autoRenumberColumnLines()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20" title="依RCAD教學Part 2一鍵重新順序編號柱線與圖號">
+                    <i class="fa-solid fa-arrow-down-1-9"></i> 柱線重新編號
+                </button>
+                <button onclick="loadDefaultRCADLines()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-md transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i> 重置範例
+                </button>
+                <button onclick="openPrintWindow()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-md transition-all shadow-md flex items-center gap-1.5" title="產生乾淨符合標準 A4 A級撿料計算書">
+                    <i class="fa-solid fa-file-invoice"></i> 產出 A4 工程報表
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Column Line & Floor Configurator (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-6 no-print">
+            
+            <!-- 柱線管理卡片 (Column Lines List) -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-xl">
+                <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <h2 class="font-bold text-sm text-slate-200 uppercase tracking-wider">1. 全棟柱線管理 (RCAD 柱線)</h2>
+                    </div>
+                    <button onclick="addNewColumnLine()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-plus"></i> 新增柱線
+                    </button>
+                </div>
+                
+                <div id="columnLinesContainer" class="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+                    <!-- 由 JavaScript 動態注入全棟柱線 -->
+                </div>
+            </div>
+
+            <!-- 樓層堆疊管理器 (Floor Stack Visualizer) -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-xl">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
+                        <h2 class="font-bold text-sm text-slate-200">2. 樓層堆疊與配筋 (上層至下層)</h2>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="addFloorToActiveLine()" class="px-2 py-1 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded flex items-center gap-1">
+                            <i class="fa-solid fa-angle-up"></i> 往上加層
+                        </button>
+                        <button onclick="deleteTopFloorFromActiveLine()" class="px-2 py-1 bg-red-900/60 hover:bg-red-800 text-red-200 text-[10px] font-bold rounded flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i> 刪除頂層
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 模擬大樓斷面的垂直堆疊圖 -->
+                <div id="floorStackContainer" class="flex flex-col gap-1 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                    <!-- 樓層方塊由 JS 動態反向渲染 (高層在頂部) -->
+                </div>
+            </div>
+            
+            <!-- 當前樓層配筋幾何詳細參數 -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-xl" id="activeFloorParamsCard">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <h2 class="font-bold text-sm text-slate-200">
+                            3. <span id="activeFloorTitle" class="text-amber-400 font-mono">1F</span> 幾何幾配筋細部參數
+                        </h2>
+                    </div>
+                    <span class="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono" id="floorIdxLabel">FLOOR INDEX</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">柱寬度 B (cm)</label>
+                        <input type="number" id="paramColB" value="80" oninput="updateActiveFloorParam('colB', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">柱深度 D (cm)</label>
+                        <input type="number" id="paramColD" value="80" oninput="updateActiveFloorParam('colD', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">淨跨高 Hn (cm)</label>
+                        <input type="number" id="paramColHn" value="320" oninput="updateActiveFloorParam('colHn', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">大梁深度 Hb (cm)</label>
+                        <input type="number" id="paramColBeam" value="70" oninput="updateActiveFloorParam('colBeam', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">淨保護層 Cc (cm)</label>
+                        <input type="number" id="paramColCc" value="4" oninput="updateActiveFloorParam('colCc', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1" id="bottomHookLabel">底部錨碇 Ld (cm)</label>
+                        <input type="number" id="paramBottomHook" value="40" oninput="updateActiveFloorParam('colBottomHook', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+
+                    <div class="col-span-2 border-t border-slate-750 pt-2 mt-1">
+                        <span class="text-xs font-bold text-slate-300 block mb-2"><i class="fa-solid fa-screwdriver-wrench text-teal-400"></i> 主筋與接頭設定</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">主筋規格 (CNS)</label>
+                        <select id="paramMainBarSize" onchange="updateActiveFloorParam('mainBarSize', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-teal-500">
+                            <option value="D16">#5 (D16)</option>
+                            <option value="D19">#6 (D19)</option>
+                            <option value="D22">#7 (D22)</option>
+                            <option value="D25">#8 (D25)</option>
+                            <option value="D29">#9 (D29)</option>
+                            <option value="D32">#10 (D32)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">分段搭接型式</label>
+                        <select id="paramSpliceType" onchange="updateActiveFloorParam('spliceType', this.value); toggleSpliceInputs()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-teal-500">
+                            <option value="lap">搭接 (Lap Splice)</option>
+                            <option value="coupler">續接器 (Coupler)</option>
+                            <option value="none">不搭接 (連續直通)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">B向外側主筋單排支數</label>
+                        <input type="number" id="paramNbMain" value="4" min="2" max="10" oninput="updateActiveFloorParam('nbMain', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-teal-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">D向外側主筋單排支數</label>
+                        <input type="number" id="paramNdMain" value="4" min="2" max="10" oninput="updateActiveFloorParam('ndMain', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-teal-500 font-mono">
+                    </div>
+
+                    <div id="paramLapSetGroup" class="col-span-2 grid grid-cols-2 gap-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">搭接倍數 (如 50d/40d)</label>
+                            <input type="number" id="paramLapFactor" value="50" oninput="updateActiveFloorParam('lapFactor', this.value)" class="w-full bg-slate-850 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs focus:outline-none focus:border-teal-500 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">高低錯開距離 (cm)</label>
+                            <input type="number" id="paramStaggerDist" value="80" oninput="updateActiveFloorParam('staggerDist', this.value)" class="w-full bg-slate-850 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs focus:outline-none focus:border-teal-500 font-mono">
+                        </div>
+                    </div>
+
+                    <div class="col-span-2 border-t border-slate-750 pt-2">
+                        <span class="text-xs font-bold text-slate-300 block mb-2"><i class="fa-solid fa-ring text-amber-400"></i> 剪力箍筋與內置繫筋</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">箍筋規格</label>
+                        <select id="paramStirrupSize" onchange="updateActiveFloorParam('stirrupSize', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+                            <option value="D10">#3 (D10)</option>
+                            <option value="D13">#4 (D13)</option>
+                            <option value="D16">#5 (D16)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center pt-5">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="paramJointStirrup" checked onchange="updateActiveFloorParam('jointStirrupActive', this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500">
+                            <span class="text-[11px] text-slate-300 font-semibold">梁柱接頭內配置箍筋</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">圍束區間距 S1 (cm)</label>
+                        <input type="number" id="paramSConfined" value="10" oninput="updateActiveFloorParam('sConfined', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">中央區間距 S2 (cm)</label>
+                        <input type="number" id="paramSNormal" value="20" oninput="updateActiveFloorParam('sNormal', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">X向內置繫筋支數</label>
+                        <input type="number" id="paramXBies" value="2" min="0" oninput="updateActiveFloorParam('xBies', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Y向內置繫筋支數</label>
+                        <input type="number" id="paramYBies" value="2" min="0" oninput="updateActiveFloorParam('yBies', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-mono">
+                    </div>
+                </div>
+
+                <div class="mt-4 bg-slate-900/80 p-3 rounded-lg border border-slate-750 text-xs" id="transitionFeedbackCard">
+                    <!-- 由 JS 動態依據與下層樓配筋變化，渲染 RCAD 合併筋串檢核訊息 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Visual Previews, Output Schedule (7 cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-6 print-full">
+            
+            <!-- 工作導覽面板 Tabs -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
+                <div class="border-b border-slate-700 bg-slate-850 px-4 flex flex-wrap justify-between items-center no-print">
+                    <nav class="flex gap-2 py-2" aria-label="Tabs">
+                        <button onclick="switchWorkspaceTab('visual')" id="tabBtn-visual" class="px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-compass-drafting"></i> CAD 斷面與全棟立面
+                        </button>
+                        <button onclick="switchWorkspaceTab('report')" id="tabBtn-report" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-shield"></i> 全棟柱線撿料單 (BOM)
+                        </button>
+                        <button onclick="switchWorkspaceTab('project')" id="tabBtn-project" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-check"></i> 專案鋼筋合約統計
+                        </button>
+                    </nav>
+                    <div class="text-[10px] text-slate-400 font-mono font-bold">
+                        柱線引擎 v3.0
+                    </div>
+                </div>
+
+                <!-- Tab 1: CAD 斷面與全棟立面 -->
+                <div id="tabContent-visual" class="p-5 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        
+                        <!-- 2D 柱斷面 (左 5 欄) -->
+                        <div class="md:col-span-5 flex flex-col items-center">
+                            <div class="w-full flex justify-between items-center mb-2.5">
+                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-circle-dot text-indigo-400"></i> B × D 斷面圖 (<span id="crossSecFloorLabel" class="text-teal-400 font-mono">1F</span>)
+                                </span>
+                                <span class="text-[11px] text-slate-400 font-mono" id="crossSectionDimText">80x80 cm</span>
+                            </div>
+                            <div class="bg-slate-950 w-full aspect-square border border-slate-700 rounded-xl flex items-center justify-center p-4 relative" style="background: radial-gradient(circle, #1a2235 0%, #0c0f17 100%);">
+                                <svg id="crossSectionSvg" class="w-full h-full" viewBox="0 0 400 400">
+                                    <!-- 動態繪製斷面圖 -->
+                                </svg>
+                            </div>
+                            <div class="mt-2.5 text-[9px] text-slate-400 text-center flex flex-wrap gap-x-3 gap-y-1 justify-center leading-relaxed">
+                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>外圍主箍筋</span>
+                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>主筋</span>
+                                <span class="flex items-center gap-1"><span class="w-2 h-1 rounded bg-amber-500 inline-block"></span>內置繫筋</span>
+                            </div>
+                        </div>
+
+                        <!-- 全棟柱線連續立面圖 (右 7 欄) -->
+                        <div class="md:col-span-7 flex flex-col items-center">
+                            <div class="w-full flex justify-between items-center mb-2.5">
+                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-ellipsis-vertical text-teal-400"></i> 全棟柱線施工立面圖
+                                </span>
+                                <span class="text-[10px] text-slate-400 font-semibold">搭接錯開/鋼筋合併筋串可視化</span>
+                            </div>
+                            <div class="bg-slate-950 w-full border border-slate-700 rounded-xl flex items-center justify-center p-3 relative overflow-hidden" style="height: 410px; background: radial-gradient(circle, #1a2235 0%, #0c0f17 100%);">
+                                <svg id="elevationSvg" class="w-full h-full" viewBox="0 0 360 600">
+                                    <!-- 動態繪製垂直多樓層柱立面 -->
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: 全棟柱線撿料單 (BOM) -->
+                <div id="tabContent-report" class="p-5 hidden space-y-4">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-slate-900 border border-slate-750 p-3 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 font-semibold block">此柱線主筋總重</span>
+                            <span class="text-sm md:text-base font-bold text-teal-400 mt-1 block" id="bomLineMainW">0.0 kg</span>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-750 p-3 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 font-semibold block">此柱線箍繫筋總重</span>
+                            <span class="text-sm md:text-base font-bold text-amber-400 mt-1 block" id="bomLineStirrupW">0.0 kg</span>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-750 p-3 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 font-semibold block">本柱線鋼筋總噸數</span>
+                            <span class="text-sm md:text-base font-bold text-blue-400 mt-1 block" id="bomLineTotalW">0.00 t</span>
+                        </div>
+                    </div>
+
+                    <!-- 依樓層分組渲染的 BOM 明細 -->
+                    <div id="bomListContainer" class="space-y-4 overflow-y-auto max-h-[350px] pr-1">
+                        <!-- 由 JS 動態注入樓層分段 BOM 表格 -->
+                    </div>
+                </div>
+
+                <!-- Tab 3: 專案鋼筋合約統計 -->
+                <div id="tabContent-project" class="p-5 hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <!-- 總重 KPI -->
+                        <div class="md:col-span-4 space-y-3">
+                            <div class="bg-gradient-to-br from-indigo-950 to-slate-900 border border-indigo-800/40 p-4 rounded-xl shadow-lg">
+                                <span class="text-[10px] text-indigo-300 font-semibold uppercase tracking-wider block">全案鋼筋採購預估量</span>
+                                <span class="text-2xl font-black text-white mt-1 block font-mono" id="projAggregateTons">0.000 <span class="text-xs font-normal text-slate-400">噸 (t)</span></span>
+                                <p class="text-[10px] text-slate-400 mt-1.5">已乘各施工圖「出料倍數」加總統計</p>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                                <span class="text-[10px] text-slate-400 font-semibold block">鋼筋需求總長度</span>
+                                <span class="text-lg font-bold text-slate-200 mt-0.5 block font-mono" id="projTotalMeters">0 <span class="text-xs text-slate-400">公尺</span></span>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                                <span class="text-[10px] text-slate-400 font-semibold block">統計柱線 / 鋼筋總支數</span>
+                                <span class="text-sm font-bold text-slate-200 mt-0.5 block" id="projSummaryStatusText">0 條柱線 / 0 支鋼筋</span>
+                            </div>
+                        </div>
+
+                        <!-- 各規格採購需求卡片 -->
+                        <div class="md:col-span-8 bg-slate-900/60 p-4 rounded-xl border border-slate-750 flex flex-col justify-between">
+                            <h3 class="text-xs font-bold text-slate-200 mb-3 flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span> 各規格 CNS 採購用鋼筋統計量
+                            </h3>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="projSizeBreakdownGrid">
+                                <!-- 動態鋼筋規格小卡 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-check text-indigo-400"></i> 全專案柱線概要彙整
+                        </h3>
+                        <div class="overflow-x-auto rounded-xl border border-slate-750">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-750 text-slate-300 font-semibold uppercase tracking-wider">
+                                        <th class="p-2.5">施工圖號</th>
+                                        <th class="p-2.5">柱線名稱</th>
+                                        <th class="p-2.5">樓層數</th>
+                                        <th class="p-2.5">出料倍數</th>
+                                        <th class="p-2.5 text-right">單條總重 (kg)</th>
+                                        <th class="p-2.5 text-right">專案加總重 (kg)</th>
+                                        <th class="p-2.5 text-right">佔比 (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projSummaryTableBody" class="divide-y divide-slate-800 text-slate-300">
+                                    <!-- 動態柱線摘要資料 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2.5 no-print">
+                        <button onclick="exportAllProjectToCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow transition-all">
+                            <i class="fa-solid fa-file-excel"></i> 匯出全專案算量 CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 柱線模組規範與鋼筋合併筋串解析說明卡片 (符合 Part 2 內容) -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-xl print-full">
+                <div class="flex items-center gap-2 pb-3 mb-3 border-b border-slate-700">
+                    <i class="fa-solid fa-circle-info text-teal-400"></i>
+                    <h3 class="font-bold text-xs text-slate-200 uppercase tracking-wider">柱線模組規範與鋼筋合併筋串解析說明</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-400 leading-relaxed">
+                    <div class="space-y-1.5">
+                        <p class="font-bold text-slate-300">1. 柱線 (Column Lines) 架構 <span class="text-[10px] text-teal-400 font-mono">(Part2 P.8)</span></p>
+                        <p>與一般個別柱計算不同，系統將**同一根柱從地下至頂樓定義為單一「柱線」**。好處是能連續檢核各層配筋，自動計算縮減主筋的長度、錨碇與搭接，防止重疊計算。</p>
+                        <p class="font-bold text-slate-300 mt-2">2. 合併筋串與柱偏心縮位</p>
+                        <p>當上下樓層斷面發生縮減（通常縮 10cm），主筋在梁高內會做 1:6 斜率之 **S 形偏心彎折** 伸入上層柱，此 S 彎折增加之算量長度為：$\Delta L = \text{縮位量} \times 0.08$ cm，系統已自動計算至料單。</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <p class="font-bold text-slate-300">3. 終止縮減主筋錨碇 <span class="text-[10px] text-teal-400 font-mono">(Part2 P.7)</span></p>
+                        <p>當下層主筋支數（例如 16 支）多於上層（如 12 支）時，多出的 4 支鋼筋為**終止筋（縮減筋）**。此 4 支鋼筋會直接伸入下層梁深（梁柱接頭）做 $90^\circ$ 彎鉤收尾錨碇（長度計算為：梁高 $H_b - C_c + 12d_b$ 彎鉤）。</p>
+                        <p class="font-bold text-slate-300 mt-2">4. 重新編號與出料倍數 <span class="text-[10px] text-teal-400 font-mono">(Part2 P.13-15)</span></p>
+                        <p>利用「重新編號」功能可使全案施工圖有序編排。出料倍數則代表該柱線在實體建築的重複次數，算量時將自動對所有主筋與箍筋做倍數展開，以符合合約估算。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-950 border-t border-slate-850 py-5 text-center text-[11px] text-slate-500 no-print">
+        <p>© 2026 全棟多柱線鋼筋撿料與數量估算系統 ｜ 依據教學資源 Part 1 & Part 2 優化重製</p>
+    </footer>
+
+    <script>
+        // CNS 鋼筋規格映射
+        const REBAR_SPECS = {
+            'D10': { diameter: 9.53, weight: 0.560, name: '#3 (D10)' },
+            'D13': { diameter: 12.7, weight: 0.994, name: '#4 (D13)' },
+            'D16': { diameter: 15.9, weight: 1.560, name: '#5 (D16)' },
+            'D19': { diameter: 19.1, weight: 2.250, name: '#6 (D19)' },
+            'D22': { diameter: 22.2, weight: 3.040, name: '#7 (D22)' },
+            'D25': { diameter: 25.4, weight: 3.980, name: '#8 (D25)' },
+            'D29': { diameter: 28.7, weight: 5.040, name: '#9 (D29)' },
+            'D32': { diameter: 31.8, weight: 6.230, name: '#10 (D32)' }
+        };
+
+        // 專案設定與全棟柱線狀態
+        let projectSettings = {
+            projectName: "RCAD 璟佳富科技大樓新建工程",
+            designer: "RCAD 結構算量組"
+        };
+
+        let columnLinesList = [];
+        let activeLineId = null;
+        let activeFloorIndex = 0; // 當前正在編輯的樓層索引 (0 是最底層)
+        let activeWorkspaceTab = 'visual';
+
+        window.onload = function() {
+            loadDefaultRCADLines();
+        };
+
+        // 載入符合教學理念的多層堆疊柱線範例
+        function loadDefaultRCADLines() {
+            projectSettings.projectName = "RCAD 璟佳富科技大樓新建工程";
+            document.getElementById('projNameInput').value = projectSettings.projectName;
+
+            columnLinesList = [
+                {
+                    id: "line-1",
+                    drawingId: "COL-DET-01",
+                    name: "C1 (邊柱柱線-1)",
+                    multiplier: 4, // 出料倍數
+                    floors: [
+                        {
+                            floorName: "1F",
+                            colB: 85,
+                            colD: 85,
+                            colHn: 360,
+                            colBeam: 80,
+                            colCc: 4,
+                            colBottomHook: 40, // 基礎層底鉤錨碇
+                            mainBarSize: "D25",
+                            spliceType: "lap",
+                            nbMain: 5,
+                            ndMain: 5,
+                            lapFactor: 50,
+                            staggerDist: 80,
+                            stirrupSize: "D13",
+                            sConfined: 10,
+                            sNormal: 18,
+                            xBies: 3,
+                            yBies: 3,
+                            jointStirrupActive: true
+                        },
+                        {
+                            floorName: "2F",
+                            colB: 75, // 發生柱縮位 10cm
+                            colD: 75, 
+                            colHn: 320,
+                            colBeam: 70,
+                            colCc: 4,
+                            colBottomHook: 0,
+                            mainBarSize: "D22", // 主筋變更
+                            spliceType: "lap",
+                            nbMain: 4, // 鋼筋減少，發生合併筋串與收尾
+                            ndMain: 4,
+                            lapFactor: 50,
+                            staggerDist: 80,
+                            stirrupSize: "D10",
+                            sConfined: 10,
+                            sNormal: 20,
+                            xBies: 2,
+                            yBies: 2,
+                            jointStirrupActive: true
+                        },
+                        {
+                            floorName: "3F",
+                            colB: 65, // 再縮小
+                            colD: 65,
+                            colHn: 300,
+                            colBeam: 60,
+                            colCc: 4,
+                            colBottomHook: 0,
+                            mainBarSize: "D19",
+                            spliceType: "none", // 頂樓直通或彎折收頭
+                            nbMain: 3,
+                            ndMain: 3,
+                            lapFactor: 50,
+                            staggerDist: 0,
+                            stirrupSize: "D10",
+                            sConfined: 12,
+                            sNormal: 24,
+                            xBies: 1,
+                            yBies: 1,
+                            jointStirrupActive: true
+                        }
+                    ]
+                },
+                {
+                    id: "line-2",
+                    drawingId: "COL-DET-02",
+                    name: "C2 (一般中高柱線-2)",
+                    multiplier: 8,
+                    floors: [
+                        {
+                            floorName: "1F",
+                            colB: 65,
+                            colD: 65,
+                            colHn: 320,
+                            colBeam: 70,
+                            colCc: 4,
+                            colBottomHook: 35,
+                            mainBarSize: "D22",
+                            spliceType: "coupler", // 採用續接器
+                            nbMain: 4,
+                            ndMain: 4,
+                            lapFactor: 50,
+                            staggerDist: 0,
+                            stirrupSize: "D10",
+                            sConfined: 10,
+                            sNormal: 20,
+                            xBies: 2,
+                            yBies: 2,
+                            jointStirrupActive: true
+                        },
+                        {
+                            floorName: "2F",
+                            colB: 65,
+                            colD: 65,
+                            colHn: 300,
+                            colBeam: 65,
+                            colCc: 4,
+                            colBottomHook: 0,
+                            mainBarSize: "D19",
+                            spliceType: "none",
+                            nbMain: 3,
+                            ndMain: 3,
+                            lapFactor: 50,
+                            staggerDist: 0,
+                            stirrupSize: "D10",
+                            sConfined: 12,
+                            sNormal: 24,
+                            xBies: 1,
+                            yBies: 1,
+                            jointStirrupActive: true
+                        }
+                    ]
+                }
+            ];
+
+            activeLineId = columnLinesList[0].id;
+            activeFloorIndex = 0; // 預設選取 1F (底層)
+            
+            renderColumnLines();
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast("全棟柱線與多樓層算量範例載入成功！");
+        }
+
+        function renderColumnLines() {
+            const container = document.getElementById('columnLinesContainer');
+            container.innerHTML = '';
+
+            columnLinesList.forEach(line => {
+                const isActive = line.id === activeLineId;
+                const totalFloorsCount = line.floors.length;
+                const topFloor = line.floors[totalFloorsCount - 1];
+                const baseFloor = line.floors[0];
+
+                const lineDiv = document.createElement('div');
+                lineDiv.className = `p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                    isActive 
+                    ? 'bg-indigo-600/10 border-indigo-500 shadow-md' 
+                    : 'bg-slate-900/40 border-slate-750 hover:bg-slate-800/60'
+                }`;
+                lineDiv.setAttribute('onclick', `selectColumnLine('${line.id}')`);
+
+                lineDiv.innerHTML = `
+                    <div class="flex-grow min-w-0 pr-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-mono bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">${line.drawingId}</span>
+                            <span class="font-bold text-sm ${isActive ? 'text-indigo-400' : 'text-slate-200'} truncate">${line.name}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] text-teal-400 font-bold bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20">${totalFloorsCount} 層樓</span>
+                            <span class="text-[10px] text-yellow-400 font-bold bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">出料: x${line.multiplier} 組</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1 truncate">
+                            底樓: ${baseFloor.colB}x${baseFloor.colD} (${baseFloor.mainBarSize}) | 頂樓: ${topFloor.colB}x${topFloor.colD} (${topFloor.mainBarSize})
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-1.5 no-print" onclick="event.stopPropagation()">
+                        <!-- 出料倍數調整 -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-[8px] text-slate-500">倍數</span>
+                            <input type="number" value="${line.multiplier}" min="1" max="100" onchange="updateLineMultiplier('${line.id}', this.value)" class="w-10 bg-slate-800 border border-slate-700 text-center text-xs text-yellow-400 font-bold rounded p-0.5">
+                        </div>
+                        <button onclick="cloneColumnLine('${line.id}')" title="複製柱線" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-md">
+                            <i class="fa-solid fa-copy text-xs"></i>
+                        </button>
+                        <button onclick="deleteColumnLine('${line.id}')" title="刪除柱線" class="p-1.5 bg-slate-800 hover:bg-red-950/40 border border-slate-700 text-slate-400 hover:text-red-400 rounded-md">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(lineDiv);
+            });
+        }
+
+        function selectColumnLine(id) {
+            activeLineId = id;
+            activeFloorIndex = 0; // 預設切到最底層
+            renderColumnLines();
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+        }
+
+        // 新增全棟柱線
+        function addNewColumnLine() {
+            const nextIdx = columnLinesList.length + 1;
+            const newId = `line-${Date.now()}`;
+            const newLine = {
+                id: newId,
+                drawingId: `COL-DET-${nextIdx < 10 ? '0' + nextIdx : nextIdx}`,
+                name: `C${nextIdx} (新柱線-${nextIdx})`,
+                multiplier: 2,
+                floors: [
+                    {
+                        floorName: "1F",
+                        colB: 70,
+                        colD: 70,
+                        colHn: 320,
+                        colBeam: 70,
+                        colCc: 4,
+                        colBottomHook: 35,
+                        mainBarSize: "D22",
+                        spliceType: "lap",
+                        nbMain: 4,
+                        ndMain: 4,
+                        lapFactor: 50,
+                        staggerDist: 80,
+                        stirrupSize: "D10",
+                        sConfined: 10,
+                        sNormal: 20,
+                        xBies: 2,
+                        yBies: 2,
+                        jointStirrupActive: true
+                    },
+                    {
+                        floorName: "2F",
+                        colB: 60, // 模擬縮位
+                        colD: 60,
+                        colHn: 300,
+                        colBeam: 60,
+                        colCc: 4,
+                        colBottomHook: 0,
+                        mainBarSize: "D19",
+                        spliceType: "none",
+                        nbMain: 3,
+                        ndMain: 3,
+                        lapFactor: 50,
+                        staggerDist: 0,
+                        stirrupSize: "D10",
+                        sConfined: 12,
+                        sNormal: 24,
+                        xBies: 1,
+                        yBies: 1,
+                        jointStirrupActive: true
+                    }
+                ]
+            };
+
+            columnLinesList.push(newLine);
+            activeLineId = newId;
+            activeFloorIndex = 0;
+            renderColumnLines();
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast("成功建立新柱線，包含 2 層預設堆疊。");
+        }
+
+        // 複製柱線
+        function cloneColumnLine(id) {
+            const target = columnLinesList.find(l => l.id === id);
+            if (!target) return;
+
+            const cloned = JSON.parse(JSON.stringify(target));
+            cloned.id = `line-${Date.now()}`;
+            cloned.name = `${target.name} (複製)`;
+            cloned.drawingId = target.drawingId + "-R";
+
+            columnLinesList.push(cloned);
+            activeLineId = cloned.id;
+            activeFloorIndex = 0;
+            renderColumnLines();
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast("成功複製柱線及其全棟配筋。");
+        }
+
+        // 刪除柱線
+        function deleteColumnLine(id) {
+            if (columnLinesList.length <= 1) {
+                showToast("⚠️ 無法刪除：全專案必須保留至少一條柱線！", "error");
+                return;
+            }
+
+            columnLinesList = columnLinesList.filter(l => l.id !== id);
+            if (activeLineId === id) {
+                activeLineId = columnLinesList[0].id;
+                activeFloorIndex = 0;
+            }
+
+            renderColumnLines();
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast("柱線已移除。");
+        }
+
+        function updateLineMultiplier(id, val) {
+            const line = columnLinesList.find(l => l.id === id);
+            if (line) {
+                line.multiplier = parseInt(val) || 1;
+                renderColumnLines();
+                calculateAll();
+            }
+        }
+
+        function autoRenumberColumnLines() {
+            // 依照當前陣列順序重新排序，設定連續 DrawingID 與規範命名
+            columnLinesList.forEach((line, idx) => {
+                const seq = idx + 1;
+                line.drawingId = `COL-DET-${seq < 10 ? '0' + seq : seq}`;
+                
+                // 去除以前的括號與複製字眼，保持統一規格
+                const parts = line.name.split(' (');
+                line.name = `C${seq} (${parts[0].replace(/C\d+/g, '').replace(/邊柱|一般|新柱線/g, '').trim() || '主要柱線'}-${seq})`;
+            });
+
+            renderColumnLines();
+            calculateAll();
+            showToast("📊 柱線與施工圖號重新編排順編完畢！");
+        }
+
+        function updateProjectMeta(field, val) {
+            projectSettings[field] = val;
+            calculateAll();
+        }
+
+        function renderFloorStack() {
+            const line = columnLinesList.find(l => l.id === activeLineId);
+            if (!line) return;
+
+            const container = document.getElementById('floorStackContainer');
+            container.innerHTML = '';
+
+            // 堆疊施工圖：由上而下渲染 (例如 3F 在頂部，1F 在底部)
+            for (let i = line.floors.length - 1; i >= 0; i--) {
+                const fl = line.floors[i];
+                const isSelected = i === activeFloorIndex;
+
+                const flDiv = document.createElement('div');
+                flDiv.className = `p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${
+                    isSelected 
+                    ? 'bg-teal-500/20 border-teal-500 text-white font-bold shadow-md shadow-teal-500/10' 
+                    : 'bg-slate-800/60 border-slate-700 hover:bg-slate-700/60 text-slate-400'
+                }`;
+                flDiv.setAttribute('onclick', `selectFloor(${i})`);
+
+                flDiv.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                            isSelected ? 'bg-teal-500 text-slate-900' : 'bg-slate-700 text-slate-300'
+                        }">
+                            ${i + 1}
+                        </div>
+                        <div>
+                            <span class="text-xs tracking-wider">${fl.floorName} 樓層配筋</span>
+                            <span class="text-[10px] text-slate-400 block font-mono font-normal">
+                                斷面: ${fl.colB}x${fl.colD} cm | 主筋: ${fl.nbMain}x${fl.ndMain} (${fl.mainBarSize})
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-[10px] font-mono text-slate-500 uppercase">
+                        ${i === line.floors.length - 1 ? '屋頂頂層' : i === 0 ? '地下/底層' : '中間樓層'}
+                    </div>
+                `;
+                container.appendChild(flDiv);
+            }
+        }
+
+        function selectFloor(idx) {
+            activeFloorIndex = idx;
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+        }
+
+        // 往柱線顶部追加新樓層 (如從 2F 往上建 3F)
+        function addFloorToActiveLine() {
+            const line = columnLinesList.find(l => l.id === activeLineId);
+            if (!line) return;
+
+            const curFloorsCount = line.floors.length;
+            const refFloor = line.floors[curFloorsCount - 1]; // 以當前頂層為藍本複製
+            
+            const newFloor = JSON.parse(JSON.stringify(refFloor));
+            newFloor.floorName = `${curFloorsCount + 1}F`;
+            newFloor.colBottomHook = 0; // 只有 1F 才有基礎錨碇
+            
+            // 越往上配筋與斷面不應大於下層，自動稍微調小 5cm
+            newFloor.colB = Math.max(40, refFloor.colB - 5);
+            newFloor.colD = Math.max(40, refFloor.colD - 5);
+
+            line.floors.push(newFloor);
+            activeFloorIndex = line.floors.length - 1; // 自動選取最新頂層
+            
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast(`已成功堆疊新增樓層 ${newFloor.floorName}。`);
+        }
+
+        // 刪除最上層
+        function deleteTopFloorFromActiveLine() {
+            const line = columnLinesList.find(l => l.id === activeLineId);
+            if (!line || line.floors.length <= 1) {
+                showToast("⚠️ 無法刪除：全柱線必須至少保留 1 個主要樓層！", "error");
+                return;
+            }
+
+            const removedName = line.floors[line.floors.length - 1].floorName;
+            line.floors.pop();
+            
+            if (activeFloorIndex >= line.floors.length) {
+                activeFloorIndex = line.floors.length - 1;
+            }
+
+            renderFloorStack();
+            loadActiveFloorToInputs();
+            calculateAll();
+            showToast(`已成功移除頂部樓層 ${removedName}。`);
+        }
+
+        function loadActiveFloorToInputs() {
+            const line = columnLinesList.find(l => l.id === activeLineId);
+            if (!line) return;
+
+            const fl = line.floors[activeFloorIndex];
+            if (!fl) return;
+
+            document.getElementById('activeFloorTitle').innerText = `${line.name} - ${fl.floorName}`;
+            document.getElementById('floorIdxLabel').innerText = `層級索引: [${activeFloorIndex}]`;
+            
+            document.getElementById('paramColB').value = fl.colB;
+            document.getElementById('paramColD').value = fl.colD;
+            document.getElementById('paramColHn').value = fl.colHn;
+            document.getElementById('paramColBeam').value = fl.colBeam;
+            document.getElementById('paramColCc').value = fl.colCc;
+            
+            // 基礎底部錨碇只在最下層 (Index=0) 啟用
+            const hookInput = document.getElementById('paramBottomHook');
+            if (activeFloorIndex === 0) {
+                hookInput.disabled = false;
+                hookInput.value = fl.colBottomHook || 40;
+                document.getElementById('bottomHookLabel').innerText = "底部錨碇 Ld (cm)";
+            } else {
+                hookInput.disabled = true;
+                hookInput.value = 0;
+                document.getElementById('bottomHookLabel').innerText = "底部錨碇 (限底層)";
+            }
+
+            document.getElementById('paramMainBarSize').value = fl.mainBarSize;
+            document.getElementById('paramSpliceType').value = fl.spliceType;
+            document.getElementById('paramNbMain').value = fl.nbMain;
+            document.getElementById('paramNdMain').value = fl.ndMain;
+            
+            document.getElementById('paramLapFactor').value = fl.lapFactor || 50;
+            document.getElementById('paramStaggerDist').value = fl.staggerDist || 80;
+            
+            document.getElementById('paramStirrupSize').value = fl.stirrupSize;
+            document.getElementById('paramJointStirrup').checked = fl.jointStirrupActive;
+            document.getElementById('paramSConfined').value = fl.sConfined;
+            document.getElementById('paramSNormal').value = fl.sNormal;
+            document.getElementById('paramXBies').value = fl.xBies;
+            document.getElementById('paramYBies').value = fl.yBies;
+
+            toggleSpliceInputs();
+        }
+
+        function toggleSpliceInputs() {
+            const splice = document.getElementById('paramSpliceType').value;
+            const group = document.getElementById('paramLapSetGroup');
+            if (splice === 'lap') {
+                group.classList.remove('hidden');
+            } else {
+                group.classList.add('hidden');
+            }
+        }
+
+        // 即時將 UI 輸入寫回主控狀態
+        function updateActiveFloorParam(field, value) {
+            const line = columnLinesList.find(l => l.id === activeLineId);
+            if (!line) return;
+
+            const fl = line.floors[activeFloorIndex];
+            if (!fl) return;
+
+            if (field === 'jointStirrupActive') {
+                fl[field] = value;
+            } else if (['mainBarSize', 'spliceType', 'stirrupSize'].includes(field)) {
+                fl[field] = value;
+            } else {
+                fl[field] = parseFloat(value) || 0;
+            }
+
+            renderFloorStack();
+            calculateAll();
+        }
+
+        function switchWorkspaceTab(tabId) {
+            activeWorkspaceTab = tabId;
+            document.getElementById('tabContent-visual').classList.add('hidden');
+            document.getElementById('tabContent-report').classList.add('hidden');
+            document.getElementById('tabContent-project').classList.add('hidden');
+            
+            document.getElementById('tabBtn-visual').className = 'px-3 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5';
+            document.getElementById('tabBtn-report').className = 'px-3 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5';
+            document.getElementById('tabBtn-project').className = 'px-3 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5';
+
+            document.getElementById('tabContent-' + tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('tabBtn-' + tabId);
+            
+            if (tabId === 'visual') {
+                activeBtn.className = 'px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 transition-all flex items-center gap-1.5';
+            } else if (tabId === 'report') {
+                activeBtn.className = 'px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600/20 text-teal-400 border border-teal-500/30 transition-all flex items-center gap-1.5';
+            } else {
+                activeBtn.className = 'px-3 py-2 text-xs font-semibold rounded-lg bg-purple-600/20 text-purple-400 border border-purple-500/30 transition-all flex items-center gap-1.5';
+            }
+        }
+
+        function calculateAll() {
+            const activeLine = columnLinesList.find(l => l.id === activeLineId);
+            if (!activeLine) return;
+
+            // 切換斷面選取
+            const fl = activeLine.floors[activeFloorIndex];
+            document.getElementById('crossSecFloorLabel').innerText = `${fl.floorName}`;
+            document.getElementById('crossSectionDimText').innerText = `${fl.colB} × ${fl.colD} cm (淨 Cc:${fl.colCc}cm)`;
+
+            // 全案主計算，會產出：
+            // 1. 每層樓鋼筋撿料長度 (考慮縮位、合併筋串終止筋)
+            // 2. 當前柱線鋼筋彙整
+            // 3. 2D 斷面與 2D 連續立面 SVG
+            const lineCalculationResult = calculateColumnLineDetails(activeLine);
+            
+            // 更新單柱線 KPI
+            document.getElementById('bomLineMainW').innerText = `${lineCalculationResult.mainBarWeight.toFixed(1)} kg`;
+            document.getElementById('bomLineStirrupW').innerText = `${lineCalculationResult.stirrupWeight.toFixed(1)} kg`;
+            document.getElementById('bomLineTotalW').innerText = `${((lineCalculationResult.mainBarWeight + lineCalculationResult.stirrupWeight) * activeLine.multiplier / 1000).toFixed(3)} t`;
+
+            // 渲染當前柱線之分層 BOM 明細
+            renderBOMDetails(lineCalculationResult.floorsData, activeLine.multiplier);
+
+            // 繪製 activeFloor 的 2D 斷面
+            drawCrossSection(fl.colB, fl.colD, fl.colCc, fl.nbMain, fl.ndMain, fl.xBies, fl.yBies);
+
+            // 繪製連續立面 (傳入全棟樓層數據與算量)
+            drawContinuousElevation(activeLine, lineCalculationResult);
+
+            // 計算專案鋼筋大總彙整 (頁籤 3)
+            calculateProjectSummary();
+        }
+
+        // 單柱線全棟多樓層鋼筋精算
+        function calculateColumnLineDetails(line) {
+            let floorsData = [];
+            let totalMainW = 0;
+            let totalStirrupW = 0;
+
+            for (let i = 0; i < line.floors.length; i++) {
+                const fl = line.floors[i];
+                const upperFl = (i < line.floors.length - 1) ? line.floors[i + 1] : null;
+
+                const mainSpec = REBAR_SPECS[fl.mainBarSize];
+                const mainD = mainSpec.diameter / 10; // cm
+                const mainW = mainSpec.weight;
+
+                const stirrupSpec = REBAR_SPECS[fl.stirrupSize];
+                const stirrupD = stirrupSpec.diameter / 10; // cm
+                const stirrupW = stirrupSpec.weight;
+
+                // 主筋數量計算 (邊緣一圈主筋)
+                const totalMainBars = 2 * (fl.nbMain + fl.ndMain - 2);
+
+                // 計算主筋長度與型態 (符合合併筋串收尾檢核)
+                let mainRebarDetails = [];
+                let spliceText = "";
+
+                // 柱偏心縮位 (Column shrinkage) 判斷
+                let shrinkB = 0;
+                let shrinkD = 0;
+                let sBendLenIncrement = 0; // S-bend 造成的長度增量
+                if (upperFl) {
+                    shrinkB = Math.max(0, (fl.colB - upperFl.colB) / 2);
+                    shrinkD = Math.max(0, (fl.colD - upperFl.colD) / 2);
+                    const maxShrink = Math.max(shrinkB, shrinkD);
+                    if (maxShrink > 0) {
+                        // 1:6 斜率之 S形彎折長度增量算法
+                        sBendLenIncrement = maxShrink * (Math.sqrt(37) - 6); // 近似 0.082 x 縮邊量 (cm)
+                    }
+                }
+
+                // 合併筋串：鋼筋支數變更判斷
+                let rebarCountReduction = 0;
+                let discontinuedRebarsCount = 0;
+                if (upperFl) {
+                    const upperMainBars = 2 * (upperFl.nbMain + upperFl.ndMain - 2);
+                    if (upperMainBars < totalMainBars) {
+                        rebarCountReduction = totalMainBars - upperMainBars;
+                        discontinuedRebarsCount = rebarCountReduction;
+                    }
+                }
+
+                // 決定本層主筋搭接長度
+                let lapLength = 0;
+                if (fl.spliceType === 'lap') {
+                    lapLength = mainD * fl.lapFactor; // 如 50db
+                }
+
+                // 連續直通直筋/搭接筋長度
+                const baseLength = fl.colHn + fl.colBeam; // 淨高 + 梁深
+                
+                if (i === 0) {
+                    // 底層：主筋有底鉤錨碇
+                    const straightCount = totalMainBars - discontinuedRebarsCount;
+                    let lenStraight = baseLength + fl.colBottomHook;
+                    if (fl.spliceType === 'lap') {
+                        lenStraight += (lapLength / 2) + sBendLenIncrement;
+                    }
+
+                    mainRebarDetails.push({
+                        desc: "底層主筋 (直通鋼筋)",
+                        size: fl.mainBarSize,
+                        length: Math.round(lenStraight),
+                        count: straightCount,
+                        totalW: (lenStraight / 100) * straightCount * mainW
+                    });
+
+                    // 若本層有終止筋 (縮減主筋)
+                    if (discontinuedRebarsCount > 0) {
+                        const lenDiscontinued = baseLength + fl.colBottomHook + 12 * mainD; // 梁內 12db 錨碇收頭
+                        mainRebarDetails.push({
+                            desc: "底層縮減終止主筋",
+                            size: fl.mainBarSize,
+                            length: Math.round(lenDiscontinued),
+                            count: discontinuedRebarsCount,
+                            totalW: (lenDiscontinued / 100) * discontinuedRebarsCount * mainW
+                        });
+                    }
+                } else if (i === line.floors.length - 1) {
+                    // 頂層：頂部主筋彎折錨碇收尾 (Ld = Hb - Cc + 12db彎鉤)
+                    const topHook = 12 * mainD; 
+                    const lenTop = fl.colHn + (fl.colBeam - fl.colCc) + topHook;
+
+                    mainRebarDetails.push({
+                        desc: "頂層柱主筋 (屋頂彎折收頭)",
+                        size: fl.mainBarSize,
+                        length: Math.round(lenTop),
+                        count: totalMainBars,
+                        totalW: (lenTop / 100) * totalMainBars * mainW
+                    });
+                } else {
+                    // 中間層
+                    const straightCount = totalMainBars - discontinuedRebarsCount;
+                    let lenStraight = baseLength;
+                    if (fl.spliceType === 'lap') {
+                        lenStraight += lapLength + sBendLenIncrement;
+                    }
+
+                    mainRebarDetails.push({
+                        desc: "中間層主筋 (直通/搭接筋)",
+                        size: fl.mainBarSize,
+                        length: Math.round(lenStraight),
+                        count: straightCount,
+                        totalW: (lenStraight / 100) * straightCount * mainW
+                    });
+
+                    if (discontinuedRebarsCount > 0) {
+                        // 縮減終止筋：在當層梁底加 12db 彎鉤收頭
+                        const lenDiscontinued = fl.colHn + (fl.colBeam - fl.colCc) + 12 * mainD;
+                        mainRebarDetails.push({
+                            desc: "中間層縮減終止筋",
+                            size: fl.mainBarSize,
+                            length: Math.round(lenDiscontinued),
+                            count: discontinuedRebarsCount,
+                            totalW: (lenDiscontinued / 100) * discontinuedRebarsCount * mainW
+                        });
+                    }
+                }
+
+                // 剪力箍筋與繫筋計算
+                const outerS_B = fl.colB - 2 * fl.colCc;
+                const outerS_D = fl.colD - 2 * fl.colCc;
+                const hookExt = Math.max(6 * stirrupD, 7.5) * 2; // 抗震135度彎鉤
+                const stirrupLength = 2 * (outerS_B + outerS_D) + hookExt;
+
+                // 圍束區 Ho 計算 (1/6 Hn, Max(B,D), 45cm)
+                const hConfined = Math.max(fl.colHn / 6, Math.max(fl.colB, fl.colD), 45);
+
+                // 箍筋數計算：底部圍束區、中間非圍束區、頂部圍束區、接頭區
+                const nConfinedBottom = Math.ceil(hConfined / fl.sConfined);
+                const nConfinedTop = Math.ceil(hConfined / fl.sConfined);
+                const middleHeight = fl.colHn - (2 * hConfined);
+                const nNormal = Math.max(0, Math.ceil(middleHeight / fl.sNormal));
+                const nJoint = fl.jointStirrupActive ? Math.ceil(fl.colBeam / fl.sConfined) : 0; // 梁柱接頭
+
+                const totalStirrupsCount = nConfinedBottom + nConfinedTop + nNormal + nJoint;
+
+                let stirrupCalculations = [];
+                stirrupCalculations.push({
+                    desc: "主外圍箍筋",
+                    size: fl.stirrupSize,
+                    length: Math.round(stirrupLength),
+                    count: totalStirrupsCount,
+                    totalW: (stirrupLength / 100) * totalStirrupsCount * stirrupW
+                });
+
+                // X向繫筋 (直線 + 兩端耐震彎鉤)
+                if (fl.xBies > 0) {
+                    const xtieLen = outerS_B + 2 * (Math.max(6 * stirrupD, 7.5));
+                    const xtieCount = fl.xBies * totalStirrupsCount;
+                    stirrupCalculations.push({
+                        desc: "內置 X 向繫筋",
+                        size: fl.stirrupSize,
+                        length: Math.round(xtieLen),
+                        count: xtieCount,
+                        totalW: (xtieLen / 100) * xtieCount * stirrupW
+                    });
+                }
+
+                // Y向繫筋
+                if (fl.yBies > 0) {
+                    const ytieLen = outerS_D + 2 * (Math.max(6 * stirrupD, 7.5));
+                    const ytieCount = fl.yBies * totalStirrupsCount;
+                    stirrupCalculations.push({
+                        desc: "內置 Y 向繫筋",
+                        size: fl.stirrupSize,
+                        length: Math.round(ytieLen),
+                        count: ytieCount,
+                        totalW: (ytieLen / 100) * ytieCount * stirrupW
+                    });
+                }
+
+                // 計算當層樓主筋與箍筋總重
+                let mainWeightSum = mainRebarDetails.reduce((acc, bar) => acc + bar.totalW, 0);
+                let stirrupWeightSum = stirrupCalculations.reduce((acc, tie) => acc + tie.totalW, 0);
+
+                totalMainW += mainWeightSum;
+                totalStirrupW += stirrupWeightSum;
+
+                floorsData.push({
+                    floorName: fl.floorName,
+                    colB: fl.colB,
+                    colD: fl.colD,
+                    colHn: fl.colHn,
+                    colBeam: fl.colBeam,
+                    hConfined: hConfined,
+                    sConfined: fl.sConfined,
+                    sNormal: fl.sNormal,
+                    mainRebarDetails: mainRebarDetails,
+                    stirrupCalculations: stirrupCalculations,
+                    mainWeight: mainWeightSum,
+                    stirrupWeight: stirrupWeightSum,
+                    discontinuedCount: discontinuedRebarsCount,
+                    shrinkageB: shrinkB,
+                    shrinkageD: shrinkD
+                });
+            }
+
+            return {
+                mainBarWeight: totalMainW,
+                stirrupWeight: totalStirrupW,
+                floorsData: floorsData
+            };
+        }
+
+        function drawCrossSection(B, D, Cc, nb, nd, xBies, yBies) {
+            const svg = document.getElementById('crossSectionSvg');
+            svg.innerHTML = ''; 
+
+            const size = 320;
+            let scaleB = size;
+            let scaleD = size;
+            if (B > D) {
+                scaleD = (D / B) * size;
+            } else if (D > B) {
+                scaleB = (B / D) * size;
+            }
+
+            const originX = (400 - scaleB) / 2;
+            const originY = (400 - scaleD) / 2;
+
+            const scX = (val) => originX + (val / B) * scaleB;
+            const scY = (val) => originY + (val / D) * scaleD;
+
+            // 柱外框
+            const columnRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            columnRect.setAttribute("x", scX(0));
+            columnRect.setAttribute("y", scY(0));
+            columnRect.setAttribute("width", scaleB);
+            columnRect.setAttribute("height", scaleD);
+            columnRect.setAttribute("fill", "#111827");
+            columnRect.setAttribute("stroke", "#475569");
+            columnRect.setAttribute("stroke-width", "3");
+            columnRect.setAttribute("rx", "6");
+            svg.appendChild(columnRect);
+
+            // 尺寸標記
+            const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            labelText.setAttribute("x", "20");
+            labelText.setAttribute("y", "380");
+            labelText.setAttribute("fill", "#94a3b8");
+            labelText.setAttribute("font-size", "11");
+            labelText.textContent = `B向: ${B}cm × D向: ${D}cm`;
+            svg.appendChild(labelText);
+
+            // 外箍筋
+            const stirrupRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            stirrupRect.setAttribute("x", scX(Cc));
+            stirrupRect.setAttribute("y", scY(Cc));
+            stirrupRect.setAttribute("width", scaleB - (2 * Cc / B) * scaleB);
+            stirrupRect.setAttribute("height", scaleD - (2 * Cc / D) * scaleD);
+            stirrupRect.setAttribute("fill", "none");
+            stirrupRect.setAttribute("stroke", "#ef4444");
+            stirrupRect.setAttribute("stroke-width", "2");
+            stirrupRect.setAttribute("rx", "4");
+            svg.appendChild(stirrupRect);
+
+            // 繪製主筋圓點與內置繫筋
+            const bInterval = (B - 2 * Cc) / (nb - 1);
+            const dInterval = (D - 2 * Cc) / (nd - 1);
+            const mainBarsList = [];
+
+            for (let i = 0; i < nb; i++) {
+                mainBarsList.push({ x: Cc + i * bInterval, y: Cc });
+                mainBarsList.push({ x: Cc + i * bInterval, y: D - Cc });
+            }
+            for (let j = 1; j < nd - 1; j++) {
+                mainBarsList.push({ x: Cc, y: Cc + j * dInterval });
+                mainBarsList.push({ x: B - Cc, y: Cc + j * dInterval });
+            }
+
+            // X向繫筋線
+            if (xBies > 0 && nd > 2) {
+                const step = (nd - 1) / (xBies + 1);
+                for (let k = 1; k <= xBies; k++) {
+                    const targetY = Cc + Math.round(k * step) * dInterval;
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", scX(Cc));
+                    line.setAttribute("y1", scY(targetY));
+                    line.setAttribute("x2", scX(B - Cc));
+                    line.setAttribute("y2", scY(targetY));
+                    line.setAttribute("stroke", "#f59e0b");
+                    line.setAttribute("stroke-width", "1.5");
+                    line.setAttribute("stroke-dasharray", "4,2");
+                    svg.appendChild(line);
+                }
+            }
+
+            // Y向繫筋線
+            if (yBies > 0 && nb > 2) {
+                const step = (nb - 1) / (yBies + 1);
+                for (let k = 1; k <= yBies; k++) {
+                    const targetX = Cc + Math.round(k * step) * bInterval;
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", scX(targetX));
+                    line.setAttribute("y1", scY(Cc));
+                    line.setAttribute("x2", scX(targetX));
+                    line.setAttribute("y2", scY(D - Cc));
+                    line.setAttribute("stroke", "#f59e0b");
+                    line.setAttribute("stroke-width", "1.5");
+                    line.setAttribute("stroke-dasharray", "4,2");
+                    svg.appendChild(line);
+                }
+            }
+
+            // 主筋點
+            mainBarsList.forEach(bar => {
+                const barCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                barCircle.setAttribute("cx", scX(bar.x));
+                barCircle.setAttribute("cy", scY(bar.y));
+                barCircle.setAttribute("r", "6.5");
+                barCircle.setAttribute("fill", "#3b82f6");
+                barCircle.setAttribute("stroke", "#ffffff");
+                barCircle.setAttribute("stroke-width", "1.5");
+                svg.appendChild(barCircle);
+            });
+        }
+
+        function drawContinuousElevation(line, calcResult) {
+            const svg = document.getElementById('elevationSvg');
+            svg.innerHTML = '';
+
+            const floorsCount = line.floors.length;
+            const paddingBottom = 40;
+            const paddingTop = 30;
+            const drawHeight = 530; // 總可用高度 600 - 40 - 30
+
+            // 計算柱線總高
+            let totalHeightCm = 0;
+            line.floors.forEach(f => {
+                totalHeightCm += f.colHn + f.colBeam;
+            });
+
+            // 比例尺函數
+            const getPixelY = (cumulativeHeightCm) => {
+                return 600 - paddingBottom - (cumulativeHeightCm / totalHeightCm) * drawHeight;
+            };
+
+            // 1. 繪製各樓層分界線 (FL)
+            let runningHeight = 0;
+            drawHorizontalGridLine(0, "GL 基礎底", true);
+
+            for (let i = 0; i < floorsCount; i++) {
+                const fl = line.floors[i];
+                const flTopHeight = runningHeight + fl.colHn + fl.colBeam;
+                const flBeamBottom = runningHeight + fl.colHn;
+
+                // 梁底線與樓版線
+                drawHorizontalGridLine(flBeamBottom, `${fl.floorName} 梁底`, false);
+                drawHorizontalGridLine(flTopHeight, `${fl.floorName} FL 樓版面`, true);
+
+                runningHeight = flTopHeight;
+            }
+
+            // 2. 繪製柱外框 (考慮 Concentric 收縮偏心與樓層變化)
+            const maxB = Math.max(...line.floors.map(f => f.colB));
+            const pixelScaleX = 140 / maxB; // 柱最大寬度限制在 140px
+
+            runningHeight = 0;
+            for (let i = 0; i < floorsCount; i++) {
+                const fl = line.floors[i];
+                const yBottom = getPixelY(runningHeight);
+                const yTop = getPixelY(runningHeight + fl.colHn + fl.colBeam);
+
+                const colW = fl.colB * pixelScaleX;
+                const xLeft = 180 - colW / 2;
+
+                const colRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                colRect.setAttribute("x", xLeft);
+                colRect.setAttribute("y", yTop);
+                colRect.setAttribute("width", colW);
+                colRect.setAttribute("height", yBottom - yTop);
+                colRect.setAttribute("fill", i % 2 === 0 ? "#1e293b" : "#111827");
+                colRect.setAttribute("fill-opacity", "0.65");
+                colRect.setAttribute("stroke", "#475569");
+                colRect.setAttribute("stroke-width", "2");
+                svg.appendChild(colRect);
+
+                // 樓層標籤
+                const flLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                flLabel.setAttribute("x", "15");
+                flLabel.setAttribute("y", (yBottom + yTop) / 2 + 4);
+                flLabel.setAttribute("fill", "#94a3b8");
+                flLabel.setAttribute("font-size", "10");
+                flLabel.setAttribute("font-weight", "bold");
+                flLabel.textContent = `${fl.floorName}層: ${fl.colB}cm`;
+                svg.appendChild(flLabel);
+
+                runningHeight += fl.colHn + fl.colBeam;
+            }
+
+            // 3. 繪製主筋與合併筋串 (S 彎折與收尾 Ld 彎鉤)
+            runningHeight = 0;
+            for (let i = 0; i < floorsCount; i++) {
+                const fl = line.floors[i];
+                const upperFl = (i < floorsCount - 1) ? line.floors[i + 1] : null;
+
+                const yBottom = getPixelY(runningHeight);
+                const yBeamBottom = getPixelY(runningHeight + fl.colHn);
+                const yTop = getPixelY(runningHeight + fl.colHn + fl.colBeam);
+
+                const colW = fl.colB * pixelScaleX;
+                const rebarOffset = (fl.colB / 2 - fl.colCc) * pixelScaleX;
+                const xLeftRebar = 180 - rebarOffset;
+                const xRightRebar = 180 + rebarOffset;
+
+                // 頂層錨碇收頭彎鉤
+                if (i === floorsCount - 1) {
+                    const topHookXLeft = xLeftRebar + 12;
+                    const topHookXRight = xRightRebar - 12;
+
+                    // 左側主筋
+                    drawPolyline([xLeftRebar, yBottom, xLeftRebar, yTop, topHookXLeft, yTop], "#3b82f6", "3");
+                    // 右側主筋
+                    drawPolyline([xRightRebar, yBottom, xRightRebar, yTop, topHookXRight, yTop], "#3b82f6", "3");
+                } 
+                // 底層或中間層
+                else {
+                    let rebarXLeftNext = xLeftRebar;
+                    let rebarXRightNext = xRightRebar;
+
+                    if (upperFl) {
+                        const upperRebarOffset = (upperFl.colB / 2 - upperFl.colCc) * pixelScaleX;
+                        rebarXLeftNext = 180 - upperRebarOffset;
+                        rebarXRightNext = 180 + upperRebarOffset;
+                    }
+
+                    // 繪製直通鋼筋 (在梁內進行 1:6 Ｓ型彎折)
+                    // 左側主筋連續線路：從底樓 -> 梁底 -> S型偏心折入上層
+                    drawPolyline([xLeftRebar, yBottom, xLeftRebar, yBeamBottom, rebarXLeftNext, yTop], "#3b82f6", "3");
+                    // 右側主筋
+                    drawPolyline([xRightRebar, yBottom, xRightRebar, yBeamBottom, rebarXRightNext, yTop], "#3b82f6", "3");
+
+                    // 4. 若有主筋縮減 (鋼筋終止筋)，在梁底做 12db 終止錨碇
+                    const fData = calcResult.floorsData[i];
+                    if (fData.discontinuedCount > 0) {
+                        const xDiscLeft = xLeftRebar + 8;
+                        const xDiscRight = xRightRebar - 8;
+                        const hookXLeft = xDiscLeft + 10;
+                        const hookXRight = xDiscRight - 10;
+
+                        // 模擬終止筋 (繪製比外周筋短且向內彎折收尾)
+                        drawPolyline([xDiscLeft, yBottom, xDiscLeft, yBeamBottom + 10, hookXLeft, yBeamBottom + 10], "#06b6d4", "2.5");
+                        drawPolyline([xDiscRight, yBottom, xDiscRight, yBeamBottom + 10, hookXRight, yBeamBottom + 10], "#06b6d4", "2.5");
+                        
+                        // 註解文字
+                        const textDisc = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        textDisc.setAttribute("x", "240");
+                        textDisc.setAttribute("y", yBeamBottom + 25);
+                        textDisc.setAttribute("fill", "#06b6d4");
+                        textDisc.setAttribute("font-size", "8");
+                        textDisc.textContent = `終止筋收頭 ×${fData.discontinuedCount}`;
+                        svg.appendChild(textDisc);
+                    }
+                }
+
+                // 底部彎折 (基礎 Ld 錨碇)
+                if (i === 0) {
+                    drawPolyline([xLeftRebar, yBottom, xLeftRebar + 15, yBottom], "#3b82f6", "3");
+                    drawPolyline([xRightRebar, yBottom, xRightRebar - 15, yBottom], "#3b82f6", "3");
+                }
+
+                // 5. 繪製箍筋橫條
+                const colW_val = fl.colB * pixelScaleX;
+                const xL_side = 180 - colW_val / 2;
+                const xR_side = 180 + colW_val / 2;
+
+                const hConf = calcResult.floorsData[i].hConfined;
+                const yConfinedBottom = getPixelY(runningHeight + hConf);
+                const yConfinedTop = getPixelY(runningHeight + fl.colHn - hConf);
+
+                // 耐震圍束區亮黃底
+                drawConfinedBackground(xL_side, yBottom, colW_val, yBottom - yConfinedBottom);
+                drawConfinedBackground(xL_side, yConfinedTop, colW_val, yConfinedTop - yTop);
+
+                // 示意繪製幾條代表性的箍筋
+                drawHorizontalTies(xL_side, xR_side, yBottom, yConfinedBottom, 4); // 下圍束
+                drawHorizontalTies(xL_side, xR_side, yConfinedBottom, yConfinedTop, 3); // 中央區
+                drawHorizontalTies(xL_side, xR_side, yConfinedTop, yBeamBottom, 4); // 上圍束
+                if (fl.jointStirrupActive) {
+                    drawHorizontalTies(xL_side, xR_side, yBeamBottom, yTop, 3); // 接頭區
+                }
+
+                runningHeight += fl.colHn + fl.colBeam;
+            }
+
+            // 輔支函式
+            function drawHorizontalGridLine(heightCm, label, isMajor) {
+                const y = getPixelY(heightCm);
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", "10");
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", "340");
+                line.setAttribute("y2", y);
+                line.setAttribute("stroke", isMajor ? "#64748b" : "#475569");
+                line.setAttribute("stroke-width", isMajor ? "1.5" : "1");
+                line.setAttribute("stroke-dasharray", "4,3");
+                svg.appendChild(line);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", "240");
+                text.setAttribute("y", y - 5);
+                text.setAttribute("fill", isMajor ? "#cbd5e1" : "#94a3b8");
+                text.setAttribute("font-size", "8");
+                text.textContent = label;
+                svg.appendChild(text);
+            }
+
+            function drawPolyline(pointsArray, strokeColor, strokeW) {
+                const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+                poly.setAttribute("points", pointsArray.join(" "));
+                poly.setAttribute("fill", "none");
+                poly.setAttribute("stroke", strokeColor);
+                poly.setAttribute("stroke-width", strokeW);
+                svg.appendChild(poly);
+            }
+
+            function drawConfinedBackground(x, y, w, h) {
+                const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                bg.setAttribute("x", x);
+                bg.setAttribute("y", y);
+                bg.setAttribute("width", w);
+                bg.setAttribute("height", h);
+                bg.setAttribute("fill", "#f59e0b");
+                bg.setAttribute("fill-opacity", "0.08");
+                svg.appendChild(bg);
+            }
+
+            function drawHorizontalTies(xStart, xEnd, yStart, yEnd, count) {
+                for (let j = 0; j < count; j++) {
+                    const y = yStart - (j / (count - 1)) * (yStart - yEnd);
+                    if (y >= paddingTop && y <= 600 - paddingBottom) {
+                        const tie = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        tie.setAttribute("x1", xStart);
+                        tie.setAttribute("y1", y);
+                        tie.setAttribute("x2", xEnd);
+                        tie.setAttribute("y2", y);
+                        tie.setAttribute("stroke", "#f59e0b");
+                        tie.setAttribute("stroke-width", "1");
+                        svg.appendChild(tie);
+                    }
+                }
+            }
+        }
+
+        function renderBOMDetails(floorsData, multiplier) {
+            const container = document.getElementById('bomListContainer');
+            container.innerHTML = '';
+
+            // 反向由上到下渲染各樓層 BOM 表格
+            for (let i = floorsData.length - 1; i >= 0; i--) {
+                const flData = floorsData[i];
+                
+                // 樓層資訊卡片
+                const flBlock = document.createElement('div');
+                flBlock.className = "bg-slate-900/80 p-3 rounded-xl border border-slate-750";
+                
+                let transNotice = "";
+                if (flData.discontinuedCount > 0) {
+                    transNotice += `<span class="bg-red-500/20 text-red-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                        合併筋串：縮減主筋 ×${flData.discontinuedCount} (12db梁內錨碇)
+                    </span>`;
+                }
+                if (flData.shrinkageB > 0 || flData.shrinkageD > 0) {
+                    transNotice += `<span class="bg-indigo-500/20 text-indigo-300 text-[9px] font-bold px-1.5 py-0.5 rounded ml-1">
+                        發生柱縮位 (主筋 1:6 Ｓ斜彎)
+                    </span>`;
+                }
+
+                let flRows = "";
+                const itemsList = [...flData.mainRebarDetails, ...flData.stirrupCalculations];
+
+                itemsList.forEach(item => {
+                    const spec = REBAR_SPECS[item.size];
+                    flRows += `
+                        <tr class="border-b border-slate-800 text-[11px] hover:bg-slate-800/40">
+                            <td class="p-2 text-slate-200 font-medium">${item.desc}</td>
+                            <td class="p-2 font-mono text-slate-400">${item.size}</td>
+                            <td class="p-2 font-mono text-slate-300">${item.length} cm</td>
+                            <td class="p-2 font-mono text-slate-400">${item.count} 支</td>
+                            <td class="p-2 font-mono text-yellow-400 font-bold">${item.count * multiplier} 支</td>
+                            <td class="p-2 font-mono text-slate-500">${spec.weight}</td>
+                            <td class="p-2 text-right font-bold text-slate-100">${(item.totalW * multiplier).toFixed(1)} kg</td>
+                        </tr>
+                    `;
+                });
+
+                flBlock.innerHTML = `
+                    <div class="flex flex-wrap justify-between items-center mb-2 pb-2 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-black text-teal-400 font-mono">${flData.floorName} 樓層</span>
+                            <span class="text-[10px] text-slate-400">幾何: ${flData.colB}x${flData.colD}cm | 梁深: ${flData.colBeam}cm</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            ${transNotice}
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] bg-slate-800 text-slate-400 uppercase">
+                                    <th class="p-1.5">鋼筋編號/位置</th>
+                                    <th class="p-1.5">規格</th>
+                                    <th class="p-1.5">長度 (cm)</th>
+                                    <th class="p-1.5">單條支數</th>
+                                    <th class="p-1.5 text-yellow-500">總支數 (乘倍數)</th>
+                                    <th class="p-1.5">kg/m</th>
+                                    <th class="p-1.5 text-right">當層總重 (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${flRows}
+                                <tr class="bg-slate-800/30 font-bold text-[11px] text-teal-400">
+                                    <td colspan="6" class="p-2">樓層加總統計：當層單條重 ${(flData.mainWeight + flData.stirrupWeight).toFixed(1)} kg</td>
+                                    <td class="p-2 text-right font-black">${((flData.mainWeight + flData.stirrupWeight) * multiplier).toFixed(1)} kg</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(flBlock);
+            }
+
+            // 更新當前樓層縮位與合併筋串教育反饋 (UI 左下角)
+            const activeFl = floorsData[activeFloorIndex];
+            const feedback = document.getElementById('transitionFeedbackCard');
+            if (activeFl) {
+                let text = `<div class="font-bold text-slate-300 mb-1 flex items-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-code-merge text-indigo-400"></i> ${activeFl.floorName} 樓層合併筋串分析
+                </div>`;
+                
+                if (activeFl.discontinuedCount > 0) {
+                    text += `<p class="text-[11px] text-amber-400">⚠️ 注意：上層主筋支數縮減！此處有 <span class="font-bold underline">${activeFl.discontinuedCount}</span> 支鋼筋需進行「縮減終止筋錨碇」。長度為梁深內加上 12db 抗震彎折。</p>`;
+                }
+                if (activeFl.shrinkageB > 0 || activeFl.shrinkageD > 0) {
+                    text += `<p class="text-[11px] text-teal-300">💡 柱發生縮位：B向縮 ${activeFl.shrinkageB}cm / D向縮 ${activeFl.shrinkageD}cm。主筋會在當層梁高內進行 S 形偏心彎折，算量已自動補足斜坡斜面微增量。</p>`;
+                }
+                if (activeFl.discontinuedCount === 0 && activeFl.shrinkageB === 0 && activeFl.shrinkageD === 0) {
+                    text += `<p class="text-[11px] text-slate-400">此層樓鋼筋直通對齊，幾何與下層一致，鋼筋受力連續搭接順暢。</p>`;
+                }
+
+                feedback.innerHTML = text;
+            }
+        }
+
+        function calculateProjectSummary() {
+            let projectTotalKg = 0;
+            let projectTotalLength = 0;
+            let projectTotalLinesCount = columnLinesList.length;
+            let totalFloorSticksCount = 0;
+
+            // 全案 CNS 規格映射
+            const projectSizeMap = {};
+            Object.keys(REBAR_SPECS).forEach(key => {
+                projectSizeMap[key] = { weight: 0, count: 0 };
+            });
+
+            const summaryTbody = document.getElementById('projSummaryTableBody');
+            summaryTbody.innerHTML = '';
+
+            columnLinesList.forEach(line => {
+                const lineCalc = calculateColumnLineDetails(line);
+                const lineMultiplier = line.multiplier;
+                
+                const singleLineW = lineCalc.mainBarWeight + lineCalc.stirrupWeight;
+                const aggregatedLineW = singleLineW * lineMultiplier;
+                
+                projectTotalKg += aggregatedLineW;
+                totalFloorSticksCount += lineMultiplier;
+
+                // 累加長度與規格
+                lineCalc.floorsData.forEach(fl => {
+                    const allItems = [...fl.mainRebarDetails, ...fl.stirrupCalculations];
+                    allItems.forEach(item => {
+                        const meters = (item.length / 100) * item.count * lineMultiplier;
+                        projectTotalLength += meters;
+
+                        projectSizeMap[item.size].weight += item.totalW * lineMultiplier;
+                        projectSizeMap[item.size].count += item.count * lineMultiplier;
+                    });
+                });
+
+                // 渲染專案柱線概要 Table 列
+                const tr = document.createElement('tr');
+                tr.className = line.id === activeLineId ? 'bg-indigo-600/10 hover:bg-slate-800' : 'hover:bg-slate-800';
+                tr.setAttribute('onclick', `selectColumnLine('${line.id}')`);
+                
+                tr.innerHTML = `
+                    <td class="p-2.5 font-mono text-slate-300 font-bold">${line.drawingId}</td>
+                    <td class="p-2.5 text-slate-200 font-semibold">${line.name}</td>
+                    <td class="p-2.5 font-mono">${line.floors.length} 層樓</td>
+                    <td class="p-2.5 text-yellow-400 font-bold">x${lineMultiplier} 組</td>
+                    <td class="p-2.5 text-right font-mono">${singleLineW.toFixed(1)} kg</td>
+                    <td class="p-2.5 text-right font-mono font-bold text-slate-100">${aggregatedLineW.toFixed(1)} kg</td>
+                    <td class="p-2.5 text-right text-teal-400 font-bold font-mono" id="perc-${line.id}">0.0%</td>
+                `;
+                summaryTbody.appendChild(tr);
+            });
+
+            // 更新佔比 %
+            columnLinesList.forEach(line => {
+                const lineCalc = calculateColumnLineDetails(line);
+                const aggregatedLineW = (lineCalc.mainBarWeight + lineCalc.stirrupWeight) * line.multiplier;
+                const percentage = projectTotalKg > 0 ? (aggregatedLineW / projectTotalKg * 100) : 0;
+                
+                const td = document.getElementById(`perc-${line.id}`);
+                if (td) td.innerText = `${percentage.toFixed(1)}%`;
+            });
+
+            // 更新 KPI
+            document.getElementById('projAggregateTons').innerHTML = `${(projectTotalKg / 1000).toFixed(3)} <span class="text-xs font-normal text-slate-400">噸 (t)</span>`;
+            document.getElementById('projTotalMeters').innerText = Math.round(projectTotalLength).toLocaleString();
+            document.getElementById('projSummaryStatusText').innerText = `${projectTotalLinesCount} 條柱線 / 共 ${totalFloorSticksCount} 組柱體`;
+
+            // 渲染規格卡片
+            const breakdownGrid = document.getElementById('projSizeBreakdownGrid');
+            breakdownGrid.innerHTML = '';
+
+            Object.keys(projectSizeMap).forEach(key => {
+                const item = projectSizeMap[key];
+                if (item.weight > 0) {
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-850 p-2 rounded-lg border border-slate-750 text-center";
+                    card.innerHTML = `
+                        <span class="text-[9px] text-slate-400 font-bold block">${REBAR_SPECS[key].name}</span>
+                        <span class="text-xs font-extrabold text-teal-300 font-mono mt-1 block">${item.weight.toFixed(1)} <span class="text-[9px] font-normal text-slate-500">kg</span></span>
+                        <span class="text-[9px] text-slate-500 font-mono block mt-1 border-t border-slate-800 pt-1">共 ${item.count} 支</span>
+                    `;
+                    breakdownGrid.appendChild(card);
+                }
+            });
+        }
+
+        // 匯出 CSV 並解決 Excel 亂碼問題 (添加 UTF-8 BOM)
+        function exportAllProjectToCSV() {
+            let csvContent = "";
+            
+            // 寫入 CSV 各欄位內容
+            csvContent += "=== 全棟多柱線鋼筋撿料與數量估算書 ===\n";
+            csvContent += `專案工程名稱,${projectSettings.projectName}\n`;
+            csvContent += `產出日期,${new Date().toISOString().slice(0, 10)}\n\n`;
+
+            csvContent += "1. 專案全棟柱線彙整列表\n";
+            csvContent += "施工圖號,柱線名稱,樓層總數,出料倍數,單棟重(kg),專案總重(kg)\n";
+
+            columnLinesList.forEach(line => {
+                const lineCalc = calculateColumnLineDetails(line);
+                const singleLineW = lineCalc.mainBarWeight + lineCalc.stirrupWeight;
+                csvContent += `"${line.drawingId}","${line.name}",${line.floors.length},${line.multiplier},${singleLineW.toFixed(1)},${(singleLineW * line.multiplier).toFixed(1)}\n`;
+            });
+            csvContent += "\n";
+
+            csvContent += "2. 各柱線分層撿料細部單 (BOM)\n";
+            csvContent += "施工圖號,柱線名稱,樓層,鋼筋編號/位置,規格,長度(cm),單棟支數,專案總支數,單位重(kg/m),鋼筋總重(kg)\n";
+
+            columnLinesList.forEach(line => {
+                const lineCalc = calculateColumnLineDetails(line);
+                lineCalc.floorsData.forEach(fl => {
+                    const items = [...fl.mainRebarDetails, ...fl.stirrupCalculations];
+                    items.forEach(item => {
+                        const spec = REBAR_SPECS[item.size];
+                        csvContent += `"${line.drawingId}","${line.name}","${fl.floorName}","${item.desc}","${item.size}",${item.length},${item.count},${item.count * line.multiplier},${spec.weight},${(item.totalW * line.multiplier).toFixed(2)}\n`;
+                    });
+                });
+            });
+
+            // 關鍵修正：建立含有 BOM (Byte Order Mark) \uFEFF 的 Blob 物件，讓 Excel 開啟時自動辨識為 UTF-8
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+            
+            const link = document.createElement("a");
+            if (navigator.msSaveBlob) { // 支援 IE 10+
+                navigator.msSaveBlob(blob, `全棟多柱線算量合約估算書_${new Date().toISOString().slice(0,10)}.csv`);
+            } else {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `全棟多柱線算量合約估算書_${new Date().toISOString().slice(0,10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            showToast("📊 專案 CSV 算量與撿料明細總表已成功下載 (已解決 Excel 亂碼問題)！");
+        }
+
+        function openPrintWindow() {
+            const printWin = window.open('', '_blank');
+            if (!printWin) {
+                showToast("⚠️ 彈出視窗已被瀏覽器封鎖！請於網址列允許「彈出視窗」後再次點擊。", "error");
+                return;
+            }
+
+            // 計算專案與統計數據
+            let projectTotalKg = 0;
+            let projectTotalLength = 0;
+            let totalColSticks = 0;
+            const sizeMap = {};
+            Object.keys(REBAR_SPECS).forEach(key => { sizeMap[key] = { weight: 0, count: 0 }; });
+
+            let summaryRowsHtml = "";
+            let columnsBomSectionHtml = "";
+
+            columnLinesList.forEach(line => {
+                const lineCalc = calculateColumnLineDetails(line);
+                const singleLineW = lineCalc.mainBarWeight + lineCalc.stirrupWeight;
+                const aggregatedLineW = singleLineW * line.multiplier;
+                projectTotalKg += aggregatedLineW;
+                totalColSticks += line.multiplier;
+
+                // 彙整列
+                summaryRowsHtml += `
+                    <tr>
+                        <td class="font-bold">${line.drawingId}</td>
+                        <td class="font-bold">${line.name}</td>
+                        <td>${line.floors.length} 層樓</td>
+                        <td class="font-bold">x${line.multiplier} 組</td>
+                        <td>${singleLineW.toFixed(1)} kg</td>
+                        <td class="font-bold">${aggregatedLineW.toFixed(1)} kg</td>
+                    </tr>`;
+
+                // 動態組裝全層 BOM HTML
+                let flBomHtml = "";
+                lineCalc.floorsData.forEach(fl => {
+                    let rows = "";
+                    const items = [...fl.mainRebarDetails, ...fl.stirrupCalculations];
+                    items.forEach(item => {
+                        const spec = REBAR_SPECS[item.size];
+                        projectTotalLength += (item.length / 100) * item.count * line.multiplier;
+                        sizeMap[item.size].weight += item.totalW * line.multiplier;
+                        sizeMap[item.size].count += item.count * line.multiplier;
+
+                        rows += `
+                            <tr>
+                                <td>${item.desc}</td>
+                                <td>${item.size}</td>
+                                <td>${item.length} cm</td>
+                                <td>${item.count} 支</td>
+                                <td>${item.count * line.multiplier} 支</td>
+                                <td>${spec.weight}</td>
+                                <td class="text-right">${(item.totalW * line.multiplier).toFixed(1)} kg</td>
+                            </tr>`;
+                    });
+
+                    let noticeText = "";
+                    if (fl.discontinuedCount > 0) noticeText += `「合併筋串：縮減主筋 ×${fl.discontinuedCount}錨碇錨折」 `;
+                    if (fl.shrinkageB > 0 || fl.shrinkageD > 0) noticeText += `「發生柱縮位 (主筋1:6斜彎)」`;
+
+                    flBomHtml += `
+                        <div class="fl-block" style="margin-top: 10px; page-break-inside: avoid;">
+                            <div style="font-weight: bold; background: #e2e8f0; padding: 4px 8px; font-size: 11px;">
+                                樓層層級: ${fl.floorName} (幾何 BxD: ${fl.colB}x${fl.colD}cm | 梁深 Hb: ${fl.colBeam}cm)
+                                <span style="float: right; color: #1e3a8a;">${noticeText}</span>
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 5px;">
+                                <thead>
+                                    <tr style="background: #f1f5f9;">
+                                        <th>位置幾說明</th>
+                                        <th>規格</th>
+                                        <th>長度</th>
+                                        <th>單組</th>
+                                        <th>專案總支數</th>
+                                        <th>kg/m</th>
+                                        <th class="text-right">總重量</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rows}
+                                </tbody>
+                            </table>
+                        </div>`;
+                });
+
+                columnsBomSectionHtml += `
+                    <div class="line-bom-section" style="page-break-inside: avoid; margin-top: 25px; border-top: 1.5px solid #000; padding-top: 15px;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 14px;">施工圖號：${line.drawingId} - ${line.name} (出料倍數: ${line.multiplier} 組)</h3>
+                        ${flBomHtml}
+                        <div style="text-align: right; font-weight: bold; font-size: 11px; margin-top: 5px;">
+                            本圖號柱線總加總噸數: ${((lineCalc.mainBarWeight + lineCalc.stirrupWeight) * line.multiplier / 1000).toFixed(3)} 噸 (t)
+                        </div>
+                    </div>`;
+            });
+
+            // 統計規格卡片 HTML
+            let breakdownStatsHtml = "";
+            Object.keys(sizeMap).forEach(key => {
+                const item = sizeMap[key];
+                if (item.weight > 0) {
+                    breakdownStatsHtml += `
+                        <div class="stat-card">
+                            <span class="label">${REBAR_SPECS[key].name}</span>
+                            <span class="value">${item.weight.toFixed(1)} kg</span>
+                            <span class="sub">共 ${item.count} 支</span>
+                        </div>`;
+                }
+            });
+
+            // 寫入 A4 白底黑字列印視窗
+            printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>全棟多柱線鋼筋撿料與數量估算書 - 報表輸出</title>
+                <style>
+                    body {
+                        font-family: "Noto Sans TC", sans-serif;
+                        color: #111;
+                        line-height: 1.4;
+                        padding: 25px;
+                        background: #fff;
+                    }
+                    .report-header {
+                        border-bottom: 3px double #111;
+                        padding-bottom: 12px;
+                        margin-bottom: 20px;
+                        text-align: center;
+                    }
+                    .report-header h1 {
+                        margin: 0;
+                        font-size: 22px;
+                        letter-spacing: 2px;
+                    }
+                    .report-header p {
+                        margin: 5px 0 0 0;
+                        font-size: 12px;
+                        color: #555;
+                    }
+                    .meta-grid {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .meta-card {
+                        border: 1px solid #111;
+                        padding: 10px;
+                        border-radius: 4px;
+                    }
+                    .meta-card .label {
+                        font-size: 11px;
+                        color: #666;
+                        display: block;
+                    }
+                    .meta-card .value {
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: #000;
+                    }
+                    h2 {
+                        font-size: 14px;
+                        border-left: 4px solid #111;
+                        padding-left: 8px;
+                        margin-top: 25px;
+                        margin-bottom: 10px;
+                        text-transform: uppercase;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 11px;
+                        margin-bottom: 15px;
+                    }
+                    th, td {
+                        border: 1px solid #111;
+                        padding: 5px 8px;
+                        text-align: left;
+                    }
+                    th {
+                        background-color: #f1f5f9;
+                        font-weight: bold;
+                    }
+                    .text-right { text-align: right; }
+                    .font-bold { font-weight: bold; }
+                    .stats-container {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 8px;
+                        margin-bottom: 20px;
+                    }
+                    .stat-card {
+                        border: 1px solid #aaa;
+                        background: #fcfcfc;
+                        padding: 8px;
+                        border-radius: 4px;
+                        text-align: center;
+                    }
+                    .stat-card .label { font-size: 10px; color: #555; }
+                    .stat-card .value { font-size: 13px; font-weight: bold; }
+                    .stat-card .sub { font-size: 9px; color: #777; }
+                    .no-print-btn {
+                        background: #1e3a8a;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        font-weight: bold;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        display: block;
+                        margin: 0 auto 20px auto;
+                    }
+                    @media print {
+                        .no-print-btn { display: none; }
+                        body { padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <button class="no-print-btn" onclick="window.print()">列印此報表 (A4 PDF)</button>
+                
+                <div class="report-header">
+                    <h1>鋼筋撿料與數量證明估算書 (柱線版)</h1>
+                    <p>全棟多柱線算量核心 • 專案工程名稱: ${projectSettings.projectName} • 產生日期: ${new Date().toLocaleDateString()}</p>
+                </div>
+
+                <div class="meta-grid">
+                    <div class="meta-card">
+                        <span class="label">專案鋼筋估算總重</span>
+                        <span class="value">${(projectTotalKg / 1000).toFixed(3)} 噸 (t)</span>
+                    </div>
+                    <div class="meta-card">
+                        <span class="label">鋼筋總長度</span>
+                        <span class="value">${Math.round(projectTotalLength).toLocaleString()} 公尺 (m)</span>
+                    </div>
+                    <div class="meta-card">
+                        <span class="label">包含柱線 / 專案總柱體</span>
+                        <span class="value">${columnLinesList.length} 條主柱線 / 共 ${totalColSticks} 組鋼筋柱</span>
+                    </div>
+                </div>
+
+                <h2>二、 全專案柱線概要彙整與算量分配比</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>施工圖號</th>
+                            <th>柱線名稱</th>
+                            <th>樓層總數</th>
+                            <th>重複組數</th>
+                            <th>單條總重 (kg)</th>
+                            <th class="text-right">專案總重量 (kg)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${summaryRowsHtml}
+                        <tr style="background: #e2e8f0; font-bold: bold;">
+                            <td colspan="5">專案鋼筋總重合計 (噸: ${(projectTotalKg / 1000).toFixed(3)} t)</td>
+                            <td class="text-right font-bold">${projectTotalKg.toFixed(1)} kg</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="page-break-after: always;"></div>
+
+                <h2>三、 柱線詳細撿料明細 (BOM 分層報表)</h2>
+                ${columnsBomSectionHtml}
+
+                <div style="margin-top: 35px; border-top: 1.5px solid #111; padding-top: 12px; font-size: 10px; text-align: center; color: #555;">
+                    本數量證明書依標準耐震規範以及多樓層連續柱線合併筋串與偏心收縮模組精算，可直接提供給現場合約與裁切計畫書使用。
+                </div>
+            </body>
+            </html>
+            `);
+
+            printWin.document.close();
+            
+            // 給予小部分渲染時間後，自動喚起列印視窗
+            setTimeout(() => {
+                printWin.focus();
+                printWin.print();
+            }, 350);
+        }
+
+        function showToast(msg, type = "success") {
+            const toast = document.createElement("div");
+            toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-2xl border flex items-center gap-2 text-xs transition-all transform duration-300 translate-y-10 opacity-0 ${
+                type === "error" ? "bg-red-900/90 border-red-500 text-red-200" : "bg-slate-850/95 border-teal-500 text-teal-200"
+            }`;
+            toast.innerHTML = `<i class="fa-solid ${type === "error" ? "fa-triangle-exclamation" : "fa-circle-check"} text-sm"></i> <span>${msg}</span>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove("translate-y-10", "opacity-0");
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.add("translate-y-10", "opacity-0");
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
